@@ -1,13 +1,13 @@
 Source: linux-iscsi-modules
 Section: net
 Priority: optional
-Maintainer: Chad Tindel <chad.tindel@hp.com>
+Maintainer: Philipp Hug <debian@hug.cx>
 Build-Depends: debhelper (>> 4.1.0), bzip2
 Standards-Version: 3.6.1
 
 Package: linux-iscsi-modules-_KVERS_
 Architecture: any
-Depends: modutils, linux-iscsi
+Depends: modutils, open-iscsi
 Provides: linux-iscsi-modules
 Description: Linux Kernel Driver Modules for Linux iSCSI (kernel _KVERS_)
  This is a Linux driver for iSCSI initiator functionality.

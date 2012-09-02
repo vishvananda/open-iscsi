@@ -1,0 +1,87 @@
+Description: Move from /var/lock and /var/run to /run/lock and /run
+Author: Stéphane Graber <stgraber@ubuntu.com>
+
+--- open-iscsi-2.0.873.orig/doc/iscsid.8
++++ open-iscsi-2.0.873/doc/iscsid.8
+@@ -40,7 +40,7 @@ do not write a process ID file.
+ .TP
+ .BI [-p|--pid=]\fIpid\-file\fP
+ write process ID to \fIpid\-file\fR rather than the default
+-\fI/var/run/iscsid.pid\fR
++\fI/run/iscsid.pid\fR
+ .TP
+ .BI [-h|--help]
+ display this help and exit
+--- open-iscsi-2.0.873.orig/usr/initiator.h
++++ open-iscsi-2.0.873/usr/initiator.h
+@@ -38,9 +38,9 @@
+ #define CONFIG_FILE		ISCSI_CONFIG_ROOT"iscsid.conf"
+ #define INITIATOR_NAME_FILE	ISCSI_CONFIG_ROOT"initiatorname.iscsi"
+ 
+-#define PID_FILE		"/var/run/iscsid.pid"
++#define PID_FILE		"//run/iscsid.pid"
+ #ifndef LOCK_DIR
+-#define LOCK_DIR		"/var/lock/iscsi"
++#define LOCK_DIR		"/run/lock/iscsi"
+ #endif
+ #define LOCK_FILE		LOCK_DIR"/lock"
+ #define LOCK_WRITE_FILE		LOCK_DIR"/lock.write"
+--- open-iscsi-2.0.873.orig/utils/open-isns/paths.h
++++ open-iscsi-2.0.873/utils/open-isns/paths.h
+@@ -13,7 +13,7 @@
+ #define OPENISNS_VERSION_STRING		"0.90"
+ 
+ #define ISNS_ETCDIR			"/etc/isns"
+-#define ISNS_RUNDIR			"/var/run"
++#define ISNS_RUNDIR			"/run"
+ #define ISNS_DEFAULT_ISNSD_CONFIG	ISNS_ETCDIR "/isnsd.conf"
+ #define ISNS_DEFAULT_ISNSDD_CONFIG	ISNS_ETCDIR "/isnsdd.conf"
+ #define ISNS_DEFAULT_ISNSADM_CONFIG	ISNS_ETCDIR "/isnsadm.conf"
+--- open-iscsi-2.0.873.orig/utils/open-isns/doc/isns_config.5
++++ open-iscsi-2.0.873/utils/open-isns/doc/isns_config.5
+@@ -94,7 +94,7 @@ statically.
+ .TP
+ .BR PIDFile " (server):
+ This specifies the name of the server's PID file, which is
+-.B /var/run/isnsd.pid
++.B /run/isnsd.pid
+ by default.
+ .\" ------------------------------------------------------------------
+ .SS Database Related Options
+--- open-iscsi-2.0.873.orig/utils/open-isns/etc/openisns.init
++++ open-iscsi-2.0.873/utils/open-isns/etc/openisns.init
+@@ -8,7 +8,7 @@
+ # description: Starts and stops the iSCSI isns server
+ #
+ # processname: isnsd
+-# pidfile: /var/run/isnsd.pid
++# pidfile: /run/isnsd.pid
+ # config:  /etc/isns/isnsd.conf
+ 
+ # Source function library.
+@@ -27,14 +27,14 @@ start()
+          success
+          echo
+          [ $RETVAL -eq 0 ] || return
+-         touch /var/lock/subsys/open-isns
++         touch /run/lock/subsys/open-isns
+ }
+ 
+ stop()
+ {
+          echo -n "Stopping iSCSI isns service: "
+          killproc isnsd
+-         [ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/open-isns
++         [ $RETVAL -eq 0 ] && rm -f /run/lock/subsys/open-isns
+          success
+          echo
+ 
+@@ -61,7 +61,7 @@ status)
+ 	RETVAL=$?
+ 	;;
+ condrestart)
+-	[ -f /var/lock/subsys/open-isns ] && restart
++	[ -f /run/lock/subsys/open-isns ] && restart
+ 	;;
+ *)
+ 	echo $"Usage: $0 {start|stop|restart|status|condrestart}"

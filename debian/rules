@@ -1,15 +1,4 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-#
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-#
-# Modified to make a template file for a multi-binary package with separated
-# build-arch and build-indep targets  by Bill Allombert 2001
-
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -17,8 +6,19 @@
 export DH_OPTIONS
 
 
+# get-orig-source target
+DEB_UPSTREAM_VERSION=$(shell dpkg-parsechangelog | sed -rne 's,^Version: ([^-]+).*,\1,p')
+
+DEB_HOST_ARCH?=$(shell dpkg-architecture -qDEB_HOST_ARCH)
+SUPPORTED_ARCH_UDEB = amd64 i386 ia64 mips mipsel powerpc
+
+get-orig-source:
+	[ ! -f $(ORIG_FILE).gz ] || rm -f $(ORIG_FILE).gz
+	uscan --force-download --rename --repack --download-version=$(DEB_UPSTREAM_VERSION) --destdir=.
+
 
 CFLAGS = -Wall -g
+export OPTFLAGS =-DDISCOVERY_FILE=\"/var/lib/open-iscsi/discovery\" -DNODE_FILE=\"/var/lib/open-iscsi/node\"
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0
@@ -35,13 +35,15 @@ configure-stamp:
 
 
 #Architecture 
-build: build-arch build-indep
+build: build-arch
 
 build-arch: build-arch-stamp
 build-arch-stamp: configure-stamp 
 
 	# Add here commands to compile the arch part of the package.
-	$(MAKE) -C usr
+	$(MAKE) -C utils/fwparam_ibft
+	$(MAKE) user
+	$(MAKE) -C utils
 
 	touch build-arch-stamp
 
@@ -55,57 +57,54 @@ build-indep-stamp: configure-stamp
 clean:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp #CONFIGURE-STAMP#
+	rm -f build-arch-stamp build-indep-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
+	$(MAKE) -C utils/fwparam_ibft clean
 	$(MAKE) -C usr clean
+	$(MAKE) -C utils clean
 	rm -rf modules
 
 	dh_clean 
 
-install: install-indep install-arch
+install: install-arch
+# disabled kernel module package for now because source is already in debian stock kernelsy
 install-indep:
-	dh_testdir
-	dh_testroot
-	dh_clean -k -i 
-	dh_installdirs -i
-
-        # create needed directories
-	dh_installdirs -i usr/src/modules/linux-iscsi
-
-	mkdir -p modules/linux-iscsi/debian
-
-        # copy the driver source
-	tar --exclude=debian -c * | (cd modules/linux-iscsi && tar xv)
-
-        # copy all relevant debian/ files
-	cp debian/{compat,copyright} modules/linux-iscsi/debian
-	cat debian/changelog | sed -e 's/linux-iscsi/linux-iscsi-modules/' > modules/linux-iscsi/debian/changelog
-	cp debian/*.modules.in modules/linux-iscsi/debian
-	install -m755 debian/rules.modules modules/linux-iscsi/debian/rules
-
-        # entar the source
-	tar jcf debian/linux-iscsi-modules-source/usr/src/linux-iscsi-modules-source.tar.bz2 modules
-
-        # Add here commands to install the indep part of the package into
-        # debian/<package>-doc.
-        #INSTALLDOC#
-
-	dh_install -i
 
 install-arch:
 	dh_testdir
 	dh_testroot
-	dh_clean -k -s 
+	dh_prep
 	dh_installdirs -s
 
 	# Add here commands to install the arch part of the package into 
-	# debian/linux-iscsi.
-	install -m 755 usr/iscsiadm $(CURDIR)/debian/linux-iscsi/usr/bin
-	install -m 755 usr/iscsid $(CURDIR)/debian/linux-iscsi/usr/sbin
-	install -m 644 etc/iscsid.conf $(CURDIR)/debian/linux-iscsi/etc/iscsid.conf.example
-	install -m 755 etc/initd/initd.debian $(CURDIR)/debian/linux-iscsi/etc/init.d/iscsid
-	make clean
+	# debian/open-iscsi.
+	install -m 755 usr/iscsiadm $(CURDIR)/debian/open-iscsi/usr/bin
+	install -m 755 usr/iscsid $(CURDIR)/debian/open-iscsi/usr/sbin
+	install -m 755 usr/iscsistart $(CURDIR)/debian/open-iscsi/usr/sbin
+	install -m 755 utils/iscsi_discovery $(CURDIR)/debian/open-iscsi/usr/sbin
+	install -m 755 utils/iscsi-iname $(CURDIR)/debian/open-iscsi/usr/sbin
+	install -m 644 debian/initiatorname.iscsi $(CURDIR)/debian/open-iscsi/etc/iscsi/initiatorname.iscsi
+	install -m 600 etc/iscsid.conf $(CURDIR)/debian/open-iscsi/etc/iscsi
+	install -m 644 debian/open-iscsi.default $(CURDIR)/debian/open-iscsi/etc/default/open-iscsi
+
+ifneq (,$(findstring $(DEB_HOST_ARCH),$(SUPPORTED_ARCH_UDEB)))
+	# udeb stuff
+	install -m 755 usr/iscsiadm $(CURDIR)/debian/open-iscsi-udeb/bin
+	install -m 755 utils/iscsi-iname $(CURDIR)/debian/open-iscsi-udeb/sbin
+	install -m 755 utils/iscsi_discovery $(CURDIR)/debian/open-iscsi-udeb/sbin
+	install -m 755 usr/iscsid $(CURDIR)/debian/open-iscsi-udeb/sbin
+	install -m 755 usr/iscsistart $(CURDIR)/debian/open-iscsi-udeb/sbin
+	install -m 644 etc/iscsid.conf $(CURDIR)/debian/open-iscsi-udeb/etc/iscsi
+	install -m 644 debian/open-iscsi-udeb.start $(CURDIR)/debian/open-iscsi-udeb/sbin/iscsi-start
+	install -m 755 debian/open-iscsi-udeb.finish-install $(CURDIR)/debian/open-iscsi-udeb/usr/lib/finish-install.d/10open-iscsi
+endif
+
+	# initramfs stuff
+	install -m 755 debian/extra/initramfs.hook \
+		$(CURDIR)/debian/open-iscsi/usr/share/initramfs-tools/hooks/iscsi
+	install -m 755 debian/extra/initramfs.local-top \
+		$(CURDIR)/debian/open-iscsi/usr/share/initramfs-tools/scripts/local-top/iscsi
 
 	dh_install -s
 
@@ -118,22 +117,14 @@ binary-common:
 	dh_installchangelogs 
 	dh_installdocs
 	dh_installexamples
-#	dh_installmenu
-#	dh_installdebconf	
-#	dh_installlogrotate	
-#	dh_installemacsen
-#	dh_installpam
-#	dh_installmime
-#	dh_installinit
-#	dh_installcron
-#	dh_installinfo
+	dh_installinit -u 'start 45 S . stop 81 0 1 6 .' --no-start
+	dh_installinit -u 'stop 80 0 1 6 .' --no-start --name=umountiscsi.sh
+	dh_installinit --name=iscsi-network-interface -n --upstart-only
 	dh_installman
 	dh_link
 	dh_strip
 	dh_compress 
 	dh_fixperms
-#	dh_perl
-#	dh_python
 	dh_makeshlibs
 	dh_installdeb
 	dh_shlibdeps
@@ -149,4 +140,4 @@ binary-arch: build-arch install-arch
 	$(MAKE) -f debian/rules DH_OPTIONS=-a binary-common
 
 binary: binary-arch binary-indep
-.PHONY: build clean binary-indep binary-arch binary install install-indep install-arch configure
+.PHONY: build clean binary-indep binary-arch binary install install-indep install-arch configure get-orig-source
